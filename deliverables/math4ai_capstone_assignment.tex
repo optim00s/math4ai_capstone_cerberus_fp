@@ -1,0 +1,831 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!50!black,
+    urlcolor=blue!60!black,
+    citecolor=blue!50!black
+}
+
+\setlist[itemize]{leftmargin=1.4em, itemsep=0.25em, topsep=0.35em}
+\setlist[enumerate]{leftmargin=1.6em, itemsep=0.3em, topsep=0.35em}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+
+\titleformat{\section}{\large\bfseries}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.5em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Math4AI Capstone}
+\rhead{National AI Center}
+\cfoot{\thepage}
+
+\newcommand{\capstonebox}[1]{%
+    \vspace{0.4em}
+    \noindent
+    \fcolorbox{black}{gray!8}{%
+        \parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{#1}
+    }
+    \vspace{0.6em}
+}
+\newcommand{\filepath}[1]{\nolinkurl{#1}}
+
+\begin{document}
+
+\begin{center}
+    {\LARGE \textbf{Math4AI Final Capstone Project}}\\[0.4em]
+    {\large National AI Center --- AI Academy}\\[0.3em]
+    {\large \textbf{From Linear Scores to a Single Hidden Layer:}\\
+    \textbf{A Mathematical Study of Simple Learning Systems}}
+\end{center}
+
+\capstonebox{
+\textbf{Deadline:} March 30 at 11:59 PM \\
+\textbf{Default team size:} 3 students \\
+\textbf{Teams of 4:} allowed only upon approved request with clear justification \\
+\textbf{Required tools:} Python, NumPy, Matplotlib, GitHub \\
+\textbf{Not allowed for core models:} PyTorch, TensorFlow, JAX, autograd, scikit-learn model classes
+}
+
+\section{Purpose and Framing}
+
+This capstone is a \textbf{Math4AI-to-AI transition project}. It is \textbf{not} a test of prior machine-learning coursework. You are not expected to arrive already knowing standard ML workflow language, neural-network implementation patterns, or model-evaluation conventions. The purpose of this project is to use the mathematics you have already studied to enter a small but central part of AI in a rigorous, guided way.
+
+You are \textbf{not} expected to already know neural-network design, professional hyperparameter tuning, advanced ML terminology, or modern uncertainty estimation before starting this project. Part of the capstone is learning these ideas carefully from the background provided here and from the curated references at the end.
+
+The capstone asks one question:
+\begin{quote}
+\textit{When does a one-hidden-layer nonlinear classifier genuinely improve on a linear decision rule, and when is additional model complexity unnecessary?}
+\end{quote}
+
+That is a mathematically serious question. It connects geometry, chain rule, optimization, likelihood, statistical variability, and scientific judgment. It also has an intellectually honest answer: \textbf{more complicated models are not automatically better}. You are \textbf{not} expected to outperform the linear baseline everywhere. Part of the project is learning to recognize when a simple model is already sufficient.
+
+\section{Conceptual Roadmap}
+
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{0.28\linewidth} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Math4AI foundation} & \textbf{Role in this capstone} \\
+\midrule
+Linear Algebra & Affine score functions, vectorized computation, hidden representations, matrix parameters, and optional PCA/SVD for teams choosing Track A. \\
+Calculus and Optimization & Gradients, chain rule, backpropagation, loss minimization, optimizer choice, and training dynamics. \\
+Probability and Statistics & Softmax probabilities, cross-entropy as negative log-likelihood, repeated-seed summaries, and optional reliability analysis for teams choosing Track B. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{What you already know, what is new, and what is optional}
+
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{0.31\linewidth} >{\raggedright\arraybackslash}p{0.31\linewidth} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{You already know} & \textbf{This capstone introduces} & \textbf{You may read further if interested} \\
+\midrule
+Vectors, matrices, dot products, least squares, gradients, Hessians, optimization methods, likelihood, MLE, confidence intervals & Supervised learning, classification, train/validation/test protocol, logits, softmax, cross-entropy, baseline models, backpropagation as a computational procedure, overfitting, generalization, reliability analysis & Universal approximation results, richer activation families, advanced optimization methods for deep learning, calibration theory, modern uncertainty estimation \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Compact notation guide}
+
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{0.12\linewidth} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Symbol} & \textbf{Meaning} \\
+\midrule
+$x$ & input feature vector for one example \\
+$y$ & true class label for one example \\
+$W, b$ & weight matrices and bias vectors \\
+$Z_1$ & hidden-layer pre-activations for a batch \\
+$h$ or $H$ & hidden representation for one example or a batch \\
+$s$ or $S$ & output scores / logits for one example or a batch \\
+$P$ & matrix of predicted class probabilities \\
+$Y$ & one-hot label matrix for a batch \\
+$n$ & batch size or number of examples under discussion \\
+$d$ & input dimension \\
+$k$ & number of classes \\
+\bottomrule
+\end{tabularx}
+
+\section{Background}
+
+\subsection{Supervised learning, labels, and classification}
+
+In supervised learning, we observe input-output pairs $(x^{(i)}, y^{(i)})$. Here, $x^{(i)}$ is the feature vector and $y^{(i)}$ is the label we want to predict. In this capstone the task is \textbf{classification}: each input belongs to one of finitely many classes.
+
+For the two synthetic datasets, the classes are binary. For the digits benchmark, the classes are the ten digits $0$ through $9$. A classifier takes an input vector and returns either:
+
+\begin{itemize}
+    \item a predicted class label, or
+    \item a vector of class scores or probabilities from which a label is chosen.
+\end{itemize}
+
+\subsection{Train, validation, and test data}
+
+You will work with a fixed split of the data:
+
+\begin{itemize}
+    \item the \textbf{training set} is used to fit parameters,
+    \item the \textbf{validation set} is used to choose settings fairly,
+    \item the \textbf{test set} is used only for final reporting.
+\end{itemize}
+
+This separation matters. If you choose model settings based on test performance, the test set stops being an honest measure of generalization.
+
+\subsection{How the learning pipeline works}
+
+At a high level, the workflow is:
+
+\begin{enumerate}
+    \item start with inputs and labels,
+    \item compute scores or logits from the current parameters,
+    \item convert scores to class probabilities,
+    \item compute a loss measuring how well the model matched the labels,
+    \item compute gradients of that loss with respect to the parameters,
+    \item update the parameters,
+    \item repeat this process over training,
+    \item choose settings on validation data,
+    \item report final results on the test set.
+\end{enumerate}
+
+This capstone asks you to understand each step mathematically, not just to run it procedurally.
+
+\subsection{Baseline models}
+
+A \textbf{baseline model} is a simple reference point used to evaluate whether additional complexity is justified. In this project, softmax regression is the baseline. The neural network is not automatically superior; it must earn its complexity through evidence.
+
+\subsection{Why softmax regression is a probabilistic model}
+
+The linear model in this project is \textbf{softmax regression}. For an input $x \in \mathbb{R}^d$, the model computes class scores
+\[
+s(x) = Wx + b,
+\]
+where $W \in \mathbb{R}^{k \times d}$ and $b \in \mathbb{R}^k$ for $k$ classes. These raw scores are often called \textbf{logits}. They are not yet probabilities.
+
+The softmax map turns scores into probabilities:
+\[
+p_j(x) = \frac{\exp(s_j(x))}{\sum_{\ell=1}^k \exp(s_\ell(x))}.
+\]
+This ensures that each $p_j(x)$ is nonnegative and that the probabilities sum to one.
+
+This is not merely a convenient formula. It defines a conditional probability model
+\[
+\mathbb{P}(Y=j \mid X=x;W,b)=p_j(x).
+\]
+In other words, the model treats the class label as a random variable whose distribution depends on the input through the logits. The entries of $Wx+b$ therefore play the role of \emph{unnormalized log-probability scores}. Softmax is the normalization map that converts those scores into a valid categorical distribution \cite{murphy2022,ngdeep}.
+
+\subsection{Tiny worked example}
+
+Suppose a three-class model produces the score vector
+\[
+s = \begin{bmatrix}1.2 & 0.2 & -0.4\end{bmatrix}.
+\]
+Then
+\[
+\exp(s) \approx \begin{bmatrix}3.32 & 1.22 & 0.67\end{bmatrix},
+\]
+so the softmax probabilities are approximately
+\[
+p \approx \begin{bmatrix}0.64 & 0.23 & 0.13\end{bmatrix}.
+\]
+If the true class is the first class, then the cross-entropy loss is approximately
+\[
+-\log(0.64) \approx 0.45.
+\]
+If the true class were instead the second class, the loss would be
+\[
+-\log(0.23) \approx 1.47.
+\]
+The mechanism is simple: the model is rewarded when it puts high probability on the correct label and penalized when it does not.
+
+\subsection{Why cross-entropy is negative log-likelihood}
+
+If the true class for an example is $y$, the cross-entropy loss is
+\[
+\mathcal{L}(x,y) = -\log p_y(x).
+\]
+Intuitively, this loss punishes the model when it assigns small probability to the correct class. Probabilistically, if the observed label is treated as a draw from the model's categorical distribution, then the likelihood of observing the correct class is exactly $p_y(x)$, and the log-likelihood is $\log p_y(x)$. Negating that quantity gives the loss above. Therefore, minimizing average cross-entropy over the dataset is the same as maximizing the average log-likelihood of the observed labels under the model \cite{murphy2022,ngdeep}. This matters because it connects classification directly to probabilistic modeling rather than to an arbitrary penalty function.
+
+\subsection{Linear score functions and affine decision boundaries}
+
+A multiclass linear classifier computes
+\[
+s(x)=Wx+b.
+\]
+The decision boundary between classes $j$ and $\ell$ is determined by the equation
+\[
+s_j(x)=s_\ell(x),
+\]
+which is affine in $x$. In two dimensions, such boundaries are lines; in higher dimensions, they are hyperplanes.
+
+\subsection{One-hidden-layer network}
+
+The neural network in this capstone has one hidden layer:
+\[
+h = \tanh(W_1 x + b_1), \qquad s = W_2 h + b_2.
+\]
+The output scores $s$ are then passed through softmax exactly as in the linear model. This model composes an affine map, a nonlinear activation, and a second affine map \cite{goodfellow2016,cs231n_nn,ethml2024}.
+
+\subsection{Why \texttt{tanh} was chosen for this capstone}
+
+Modern practice often favors ReLU-like activations, but this capstone uses \verb|tanh| for pedagogical reasons. First, \verb|tanh| is smooth and its derivative has a compact closed form:
+\[
+\frac{d}{dz}\tanh(z)=1-\tanh^2(z).
+\]
+That makes the backpropagation derivation cleaner. Second, \verb|tanh| is zero-centered, which simplifies interpretation of hidden activations and often yields less awkward update behavior than the sigmoid family. Third, because this project is about understanding representational change rather than maximizing performance on a large benchmark, the clarity of the mathematics matters more than imitating current large-scale engineering defaults. You may mention ReLU in your report if useful, but the required core model uses \verb|tanh|.
+
+\subsection{Backpropagation before equations}
+
+Backpropagation is not magic and it is not a separate learning principle. It is a bookkeeping procedure for applying the chain rule efficiently through a composed computation.
+
+In the forward pass, you compute intermediate quantities: affine pre-activations, hidden activations, output scores, probabilities, and loss. In the backward pass, you propagate sensitivities of the loss with respect to those quantities in reverse order. Each local derivative is simple; the chain rule assembles them into gradients with respect to the parameters \cite{cs231n_backprop,ngdeep,goodfellow2016}.
+
+Conceptually, backpropagation answers the question:
+\begin{quote}
+\textit{If the loss changed slightly, which parameters are responsible, in which direction, and by how much?}
+\end{quote}
+
+\subsection{Backpropagation in vectorized form}
+
+For implementation, you should think in batches. If a batch of inputs is stored row-wise in a matrix $X \in \mathbb{R}^{n \times d}$, then a vectorized forward pass can be written as
+\[
+Z_1 = XW_1^\top + \mathbf{1}b_1^\top, \qquad H = \tanh(Z_1),
+\]
+\[
+S = HW_2^\top + \mathbf{1}b_2^\top, \qquad P = \mathrm{softmax}_{\mathrm{row}}(S),
+\]
+where $P \in \mathbb{R}^{n \times k}$ contains one predicted probability vector per row. If $Y$ is the one-hot label matrix, then the average batch cross-entropy leads to the familiar output-layer sensitivity
+\[
+\frac{\partial \mathcal{L}}{\partial S} = \frac{1}{n}(P-Y).
+\]
+From there, the chain rule propagates backward:
+\[
+\frac{\partial \mathcal{L}}{\partial W_2} = \left(\frac{\partial \mathcal{L}}{\partial S}\right)^\top H, \qquad
+\frac{\partial \mathcal{L}}{\partial b_2} = \left(\frac{\partial \mathcal{L}}{\partial S}\right)^\top \mathbf{1},
+\]
+\[
+\frac{\partial \mathcal{L}}{\partial Z_1}
+=
+\left(\frac{\partial \mathcal{L}}{\partial S}\right) W_2 \odot (1-H \odot H),
+\]
+\[
+\frac{\partial \mathcal{L}}{\partial W_1}
+=
+\left(\frac{\partial \mathcal{L}}{\partial Z_1}\right)^\top X, \qquad
+\frac{\partial \mathcal{L}}{\partial b_1}
+=
+\left(\frac{\partial \mathcal{L}}{\partial Z_1}\right)^\top \mathbf{1}.
+\]
+These formulas are not an optional implementation trick. They are the matrix form of the same chain rule you know from calculus. Vectorization simply organizes many scalar derivatives into a compact linear-algebra computation.
+
+\subsection{Overfitting, generalization, and fair comparison}
+
+\textbf{Overfitting} occurs when a model fits the training data very closely but does not generalize well to new data. \textbf{Generalization} is the ability to perform well on unseen examples from the same task distribution.
+
+Because the two model classes differ in structure and parameterization, comparison must be fair. Fair comparison means:
+
+\begin{itemize}
+    \item same train/validation/test split,
+    \item same preprocessing rules,
+    \item same reporting metrics,
+    \item model settings chosen using validation performance rather than test performance,
+    \item repeated-seed reporting on the digits benchmark for the final selected configurations.
+\end{itemize}
+
+\subsection{Repeated-seed evaluation}
+
+Optimization can depend on random initialization and mini-batch order, so repeated runs of the same training procedure may not produce identical results.
+
+In this project you will use five random seeds on the digits benchmark for the final selected configurations and summarize the outcomes with means and 95\% confidence intervals.
+
+\subsection{Recommended references}
+
+Use these selectively. They are references, not a second syllabus.
+
+\begin{itemize}
+    \item Deisenroth, Faisal, and Ong, \emph{Mathematics for Machine Learning} \cite{deisenroth2020}
+    \item Murphy, \emph{Probabilistic Machine Learning: An Introduction} \cite{murphy2022}
+    \item Goodfellow, Bengio, and Courville, \emph{Deep Learning} \cite{goodfellow2016}
+    \item Ng and Katanforoosh, CS229 deep learning notes \cite{ngdeep}
+    \item Stanford CS231n notes on neural networks and backpropagation \cite{cs231n_nn,cs231n_backprop}
+    \item ETH Introduction to Machine Learning notes \cite{ethml2024}
+    \item GitHub Flow documentation and MIT Missing Semester notes for version control \cite{githubflow,missingsemester}
+\end{itemize}
+
+\section{Data and Starter Pack}
+
+\subsection{Common data for all teams}
+
+All teams must use the same data and splits.
+
+\begin{enumerate}
+    \item \textbf{Linear synthetic task:} two Gaussian blobs with mild overlap.
+    \item \textbf{Nonlinear synthetic task:} moons.
+    \item \textbf{Digits benchmark:} fixed digits dataset with shared train/validation/test split.
+\end{enumerate}
+
+The synthetic tasks are chosen for geometric clarity. The digits benchmark is chosen because it is small, standard, clean, and substantial enough to make the comparison meaningful without turning the project into a data-engineering exercise.
+
+Use the starter-pack files directly:
+
+\begin{itemize}
+    \item \filepath{starter_pack/data/linear_gaussian.npz} for the linear synthetic task
+    \item \filepath{starter_pack/data/moons.npz} for the nonlinear synthetic task
+    \item \filepath{starter_pack/data/digits_data.npz} for the digits feature matrix and labels
+    \item \filepath{starter_pack/data/digits_split_indices.npz} for the fixed train/validation/test indices
+\end{itemize}
+
+\subsection{Exact digits benchmark protocol}
+
+The digits benchmark protocol is fixed for all teams.
+
+\begin{itemize}
+    \item \textbf{Input representation:} use the flattened 64-dimensional vectors stored in \filepath{starter_pack/data/digits_data.npz}.
+    \item \textbf{Labels:} use the digit labels stored in \filepath{starter_pack/data/digits_data.npz}.
+    \item \textbf{Split definition:} use \texttt{train\_idx}, \texttt{val\_idx}, and \texttt{test\_idx} from \filepath{starter_pack/data/digits_split_indices.npz}. The script \filepath{starter_pack/scripts/make_digits_split.py} is included for reproducibility; your experiments should use the published indices.
+    \item \textbf{Scaling:} the provided digits features are already scaled to the interval \([0,1]\). Do not apply additional normalization, whitening, feature engineering, or augmentation in the required core experiments.
+    \item \textbf{Core preprocessing rule:} outside Track A, use the digits features exactly as provided in \filepath{starter_pack/data/digits_data.npz}.
+    \item \textbf{Evaluation metrics:} for digits, always report both classification accuracy and mean cross-entropy loss. Accuracy means the fraction of correctly classified examples. Mean cross-entropy means the average negative log-probability assigned to the true class over the evaluation split.
+    \item \textbf{Model selection metric:} use validation cross-entropy as the primary metric when choosing settings.
+    \item \textbf{Default hidden width:} use hidden width \(32\) for the neural network outside the required capacity ablation.
+    \item \textbf{Default regularization:} use \(L_2\) regularization with coefficient \(\lambda = 10^{-4}\) for both models.
+    \item \textbf{Default batch size:} use mini-batch size \(64\).
+    \item \textbf{Softmax baseline optimizer:} use mini-batch SGD with learning rate \(0.05\).
+    \item \textbf{Optimizer defaults for the required neural-network optimizer study:} use SGD with learning rate \(0.05\), Momentum with learning rate \(0.05\) and momentum coefficient \(0.9\), and Adam with learning rate \(0.001\), \(\beta_1=0.9\), \(\beta_2=0.999\), and \(\varepsilon = 10^{-8}\).
+    \item \textbf{Epoch budget:} train for at most \(200\) epochs and use the best validation-cross-entropy checkpoint from within that budget.
+\end{itemize}
+
+These defaults are part of the experimental contract. Do not turn the digits benchmark into an open-ended hyperparameter search.
+
+\subsection{Starter pack contents}
+
+The starter pack is intentionally minimal. It includes only:
+
+\begin{itemize}
+    \item \filepath{starter_pack/data/digits_data.npz},
+    \item \filepath{starter_pack/data/digits_split_indices.npz},
+    \item \filepath{starter_pack/data/linear_gaussian.npz},
+    \item \filepath{starter_pack/data/moons.npz},
+    \item \filepath{starter_pack/scripts/make_digits_split.py},
+    \item \filepath{starter_pack/scripts/generate_synthetic.py},
+    \item \filepath{starter_pack/README.md} and \filepath{starter_pack/CHECKLIST.md},
+    \item the optional report template \filepath{starter_pack/report/template.tex}.
+\end{itemize}
+
+It does \textbf{not} include any model implementation code, model skeletons, placeholder methods, optimizer scaffolding, or training-loop scaffolding.
+
+Begin with \filepath{starter_pack/README.md} and \filepath{starter_pack/CHECKLIST.md}. If you want to inspect how the provided datasets were produced, read \filepath{starter_pack/scripts/generate_synthetic.py} and \filepath{starter_pack/scripts/make_digits_split.py}.
+
+\subsection{How to access the repository}
+
+The student repository for this capstone is:
+\begin{quote}
+\url{https://github.com/Murad-Huseynli/math4ai_capstone}
+\end{quote}
+
+Clone it with:
+\begin{quote}
+\verb|git clone https://github.com/Murad-Huseynli/math4ai_capstone.git|
+\end{quote}
+
+After cloning, begin by reading \filepath{README.md}, then \filepath{starter_pack/README.md}, and then \filepath{starter_pack/CHECKLIST.md}.
+
+\section{Implementation Requirements}
+
+\subsection{What ``from scratch'' means}
+
+You must implement the intellectually central parts of the project yourself in NumPy. In particular, you must implement:
+
+\begin{itemize}
+    \item numerically stable logits and softmax probabilities,
+    \item cross-entropy loss,
+    \item forward propagation,
+    \item backpropagation for both models,
+    \item parameter updates,
+    \item mini-batch training,
+    \item evaluation metrics,
+    \item the core plots used in your analysis.
+\end{itemize}
+
+You may use NumPy's linear algebra routines. Teams choosing Track A may use \verb|np.linalg.svd|. You are not expected to reimplement SVD.
+
+\subsection{Allowed and prohibited tools}
+
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{0.22\linewidth} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Allowed} & Python, NumPy, Matplotlib, standard-library utilities, light helper scripts, LaTeX or another professional PDF workflow \\
+\midrule
+\textbf{Not allowed for the core methods} & PyTorch, TensorFlow, JAX, autograd, scikit-learn model classes, hidden high-level training loops, external datasets, leaderboard-style competition framing \\
+\bottomrule
+\end{tabularx}
+
+\subsection{AI-tool usage policy}
+
+You may use AI tools for limited support tasks such as debugging, explaining a concept, checking syntax, or clarifying an error message. However, AI tools do \textbf{not} replace understanding. You remain fully responsible for:
+
+\begin{itemize}
+    \item correctness,
+    \item conceptual understanding,
+    \item implementation integrity,
+    \item oral defense of every major idea and code path you submit.
+\end{itemize}
+
+If you cannot explain or defend a major claim or implementation decision during the presentation, then it does not count as understood work.
+
+\subsection{Required models}
+
+\textbf{Model 1:} multiclass softmax regression. \\
+\textbf{Model 2:} one-hidden-layer neural network with \verb|tanh| hidden activations and softmax output.
+
+Use a single hidden layer only. Do not turn this into a deeper-network project.
+
+\subsection{Implementation sanity checks}
+
+Your report must contain a short subsection titled \textbf{Implementation Sanity Checks} or \textbf{Verification and Debugging Checks}. This is a required part of the project.
+
+Include a concise record of at least \textbf{three} checks such as:
+
+\begin{itemize}
+    \item a gradient sanity check on a tiny batch or selected parameter entries,
+    \item evidence that the loss decreases on a tiny subset after a few updates,
+    \item successful overfitting of a very small subset of training examples,
+    \item confirmation that predicted class probabilities sum to one,
+    \item confirmation that training did not silently produce NaNs or infinities.
+\end{itemize}
+
+Keep this subsection short and concrete. Its purpose is to show implementation discipline, not to become a second report.
+
+\section{Required Mathematical Work}
+
+Your report must at least include the following (the deeper your analysis beyond these points, the better for you):
+
+\begin{enumerate}
+    \item A derivation showing why softmax cross-entropy can be interpreted as negative log-likelihood.
+    \item A conceptual explanation of backpropagation before giving equations.
+    \item A complete derivation of the parameter gradients for the one-hidden-layer network.
+    \item A mathematical explanation of why the Gaussian task is well matched to a linear decision rule and why the moons task is not.
+\end{enumerate}
+
+You may discuss regularization as an interpretive idea, but do not inflate that discussion into a second theory project.
+
+\section{Experimental Program}
+
+\capstonebox{
+\textbf{Depth of interpretation matters more than the number of experiments.} A small number of well-designed experiments is better than a long list of shallow runs. Raw accuracy is not the objective. Mathematical and scientific understanding is.
+}
+
+\subsection{Required core experiments}
+
+Every team must complete the following comparisons:
+
+\begin{enumerate}
+    \item Train and compare both models on the linear Gaussian task. Include decision-boundary plots.
+    \item Train and compare both models on the moons task. Include decision-boundary plots.
+    \item Train and compare both models on the fixed digits benchmark using the same preprocessing and split.
+\end{enumerate}
+
+\subsection{Checkpoint policy across datasets}
+
+Use a simple and consistent checkpoint policy:
+
+\begin{itemize}
+    \item For the two synthetic tasks, you may report the final epoch within your stated training budget unless you explicitly justify a different choice.
+    \item For the digits benchmark, you must use the best validation-cross-entropy checkpoint within the allowed epoch budget.
+\end{itemize}
+
+\subsection{Required ablations}
+
+You must complete exactly these three:
+
+\begin{enumerate}
+    \item \textbf{Capacity ablation on moons.} Use hidden widths \(\{2, 8, 32\}\). Interpret what changes in the learned decision boundary.
+    \item \textbf{Optimizer study on digits.} On the one-hidden-layer neural network with hidden width \(32\), compare exactly these optimizers: SGD, Momentum, and Adam, using the default settings stated in the digits protocol. Softmax regression is not part of this optimizer comparison; it remains the fixed baseline model. Use the same split, preprocessing, epoch budget, metrics, and checkpoint rule for all three optimizers. The goal is to compare training behavior under fixed conditions, not to perform separate hyperparameter tuning for each optimizer.
+    \item \textbf{One failure-case analysis.} This may come from under-capacity, an optimizer behaving poorly, instability, or visible overfitting. You must explain \emph{why} it failed, not merely show that it failed.
+\end{enumerate}
+
+\subsection{Repeated-seed statistics}
+
+For the digits benchmark, model selection and final reporting must follow this exact protocol:
+
+\begin{enumerate}
+    \item Use the training set to fit parameters.
+    \item Use the validation set only to choose settings and select the best epoch.
+    \item Fix one final selected configuration for softmax regression and one for the neural network using validation evidence only.
+    \item For each selected configuration, run \textbf{five seeds}.
+    \item For each seed, evaluate the test set exactly once after the configuration and best epoch have been selected.
+\end{enumerate}
+
+You must then report:
+
+\begin{itemize}
+    \item mean test accuracy over 5 seeds,
+    \item mean test cross-entropy over 5 seeds,
+    \item a 95\% confidence interval for each mean,
+    \item a short interpretation of what the variability does and does not justify.
+\end{itemize}
+
+With five seeds, an acceptable 95\% confidence interval for the sample mean is
+\[
+\bar{x} \pm 2.776 \cdot \frac{s}{\sqrt{5}},
+\]
+where $\bar{x}$ is the sample mean and $s$ is the sample standard deviation. If you use a different correct method, state it clearly.
+
+\subsection{Visualizations}
+
+At minimum, your report must contain:
+
+\begin{itemize}
+    \item decision-boundary plots for the two synthetic tasks,
+    \item at least one training-dynamics figure for the digits benchmark,
+    \item a figure or table supporting your advanced track,
+    \item a figure or table dedicated to the failure case.
+\end{itemize}
+
+\section{Advanced Analysis Track}
+
+Every team must complete exactly \textbf{one} of the following tracks.
+
+\subsection{Track A: PCA/SVD and input geometry}
+
+This is a \textbf{focused analysis}, not a second large experiment grid. Its purpose is to study input geometry and dimensional compression before classification, and to compare linear structure in the input to what nonlinear representation learning may add.
+
+Required work:
+
+\begin{itemize}
+    \item one scree plot,
+    \item one 2D PCA visualization of the digits data,
+    \item one small softmax comparison at fixed PCA dimensions \(m \in \{10,20,40\}\),
+    \item a brief interpretation tied back to the main project question.
+\end{itemize}
+
+Use the digits data in \filepath{starter_pack/data/digits_data.npz} for this track.
+
+\subsection{Track B: Prediction confidence and reliability}
+
+Track B must be conducted on the fixed digits benchmark. Use predictions produced by your trained models on the fixed digits benchmark, using inputs from \filepath{starter_pack/data/digits_data.npz} and the split defined in \filepath{starter_pack/data/digits_split_indices.npz}. This is \textbf{not} a full modern uncertainty-estimation project. Keep the language precise and modest: confidence, reliability, confidence versus correctness, predictive entropy.
+
+Required work:
+
+\begin{itemize}
+    \item confidence defined as the maximum predicted class probability,
+    \item predictive entropy from the softmax output,
+    \item a 5-bin confidence-versus-empirical-accuracy table or plot for both models,
+    \item a comparison of confidence or entropy for correct versus incorrect predictions,
+    \item a brief interpretation tied back to the main project question.
+\end{itemize}
+
+\section{Deliverables}
+
+\subsection{Repository}
+
+You must submit a GitHub repository link. The repository must include:
+
+\begin{itemize}
+    \item meaningful commit history,
+    \item branch-based workflow,
+    \item at least one merged feature branch per team member,
+    \item readable organization,
+    \item exact reproduction instructions in the README.
+\end{itemize}
+
+\subsection{Final report}
+
+Submit a professionally formatted PDF report.
+
+\begin{itemize}
+    \item Length: 6--8 pages of main text
+    \item References do not count toward the page limit
+    \item An appendix is optional
+    \item LaTeX/Overleaf is strongly recommended but not required
+\end{itemize}
+
+An optional starting template is included at \filepath{starter_pack/report/template.tex}.
+
+Your report must include the following sections:
+
+\begin{itemize}
+    \item Introduction / framing
+    \item Background and mathematical setup
+    \item Methods
+    \item Implementation sanity checks
+    \item Experiments
+    \item Advanced track
+    \item Discussion
+    \item \textbf{Limitations}
+    \item References
+\end{itemize}
+
+The \textbf{Limitations} subsection is required. It should explain what your study does not test, what claims remain uncertain, and why your conclusions should not be overgeneralized.
+
+Your report must do more than display equations and plots. It must explain:
+
+\begin{itemize}
+    \item what each model class can represent geometrically,
+    \item what evidence supports each major conclusion,
+    \item where the linear model is sufficient,
+    \item where the hidden layer changes the geometry of the problem,
+    \item what the limits of those conclusions are.
+\end{itemize}
+
+Your report must also explicitly answer the following interpretive questions. These are questions for \emph{your team} to answer from mathematics and evidence; do not treat them as conclusions supplied by the handout:
+
+\begin{itemize}
+    \item When is the linear model geometrically sufficient, and when is it not?
+    \item What representational change does the hidden layer provide in your experiments?
+    \item When does additional model complexity fail to justify itself?
+    \item What does your failure case teach about optimization, capacity, or generalization?
+    \item What do repeated-seed statistics add beyond a single run?
+\end{itemize}
+
+Strong reports argue from evidence rather than from preference. If the linear baseline is sufficient for part of the project, say so clearly and justify that claim. \textbf{The deeper your analysis and beyond the points you were asked, the better for you.}
+
+Use consistent notation throughout the report and define symbols before using them.
+
+\subsection{Slides and presentation}
+
+You must deliver a \textbf{10-minute technical presentation} followed by \textbf{5 minutes of committee Q\&A}. Every team member must speak.
+
+Treat this as a technical pitch to knowledgeable reviewers. Your presentation should emphasize:
+
+\begin{itemize}
+    \item the central question,
+    \item why the comparison is fair,
+    \item where linear structure was sufficient,
+    \item where nonlinearity helped,
+    \item what the failure case reveals,
+    \item what repeated-seed evaluation added beyond a single run,
+    \item what limitations remain.
+\end{itemize}
+
+Your presentation must explicitly answer, in concise form, the same core interpretive questions required in the report. These are questions for your team to answer from its own evidence: when the linear model is geometrically sufficient, what representational change the hidden layer provides, when extra complexity does not justify itself, what the failure case teaches, and what repeated-seed statistics add.
+
+\subsection{Contribution statement}
+
+Each team member must submit a short statement describing their contributions. This is primarily for accountability and conflict resolution, not for performative individualization.
+
+\section{GitHub and Collaboration Expectations}
+
+GitHub is required because this capstone is collaborative, technical, and cumulative. However, Git is not the point of the project. Use it as professional infrastructure, not as a substitute for scientific thinking.
+
+\subsection{Minimum collaboration standard}
+
+\begin{itemize}
+    \item Default team size is 3; teams of 4 are allowed only upon approved request with clear justification.
+    \item Every member must contribute through a branch-based workflow.
+    \item Every member must have at least one merged feature branch.
+    \item Commit messages must be meaningful.
+    \item The README must explain setup, repository structure, and reproduction.
+\end{itemize}
+
+\subsection{Compact Git primer}
+
+\begin{tabularx}{\linewidth}{>{\ttfamily\raggedright\arraybackslash}p{0.22\linewidth} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Command} & \textbf{Purpose} \\
+\midrule
+\verb|git clone <url>| & Copy the repository to your machine \\
+\verb|git status| & Check what changed and what is staged \\
+\verb|git add <file>| & Stage changes for the next commit \\
+\verb|git commit -m "..."| & Create a snapshot with a meaningful message \\
+\verb|git pull| & Bring in remote changes before continuing work \\
+\verb|git push| & Publish your commits to GitHub \\
+\verb|git branch| & List or create branches \\
+\verb|git switch <name>| or \verb|git checkout <name>| & Move to another branch \\
+\verb|git merge <name>| & Merge a completed branch into your current branch \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Repository organization}
+
+A simple layout is enough. In the distributed repository, the working scaffold lives under \verb|starter_pack/|:
+
+\begin{itemize}
+    \item \verb|starter_pack/|
+    \item \verb|starter_pack/data/|
+    \item \verb|starter_pack/scripts/|
+    \item \verb|starter_pack/src/|
+    \item \verb|starter_pack/figures/|
+    \item \verb|starter_pack/results/|
+    \item \verb|starter_pack/report/|
+    \item \verb|starter_pack/slides/|
+    \item \verb|README.md|
+\end{itemize}
+
+Your README should state:
+
+\begin{itemize}
+    \item the project objective,
+    \item how to set up the environment,
+    \item how to reproduce the main experiments,
+    \item what each major folder contains,
+    \item a high-level summary of team contributions.
+\end{itemize}
+
+\section{Recommended One-Week Workflow}
+
+This is not graded, but it is realistic.
+
+\begin{enumerate}
+    \item \textbf{Day 1:} Read the handout carefully, inspect the data, assign responsibilities, and set up the repository.
+    \item \textbf{Day 2:} Implement and verify softmax regression.
+    \item \textbf{Day 3:} Implement and verify the one-hidden-layer network and backpropagation.
+    \item \textbf{Day 4:} Complete the required core comparisons on the synthetic tasks and digits.
+    \item \textbf{Day 5:} Run the required ablations, optimizer study, and repeated-seed evaluation.
+    \item \textbf{Day 6:} Complete one advanced track, organize figures, draft the report.
+    \item \textbf{Day 7:} Finalize the report, clean the repository, and rehearse the presentation.
+\end{enumerate}
+
+\section{Evaluation Rubric}
+
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{0.14\linewidth} >{\raggedright\arraybackslash}p{0.66\linewidth} >{\raggedleft\arraybackslash}p{0.12\linewidth}}
+\toprule
+\textbf{Category} & \textbf{What we are looking for} & \textbf{Weight} \\
+\midrule
+Mathematical understanding and derivations & Correct derivations of softmax negative log-likelihood and network gradients; clear explanation of what the linear model and the hidden-layer model can represent; accurate use of notation; and mathematically serious reasoning about geometry rather than unsupported intuition & 20 \\
+Implementation correctness and numerical care & Stable softmax implementation, correct cross-entropy, correct vectorized backpropagation, sensible parameter updates, and visible implementation discipline through sanity checks such as gradient verification, probability checks, tiny-subset behavior, or NaN/Inf checks & 16 \\
+Experimental design and fair comparison & Same split and preprocessing for both models, validation-only model selection, correct digits protocol, completion of exactly the required capacity ablation and optimizer study, and experiments designed to answer the central question rather than pad the report & 18 \\
+Interpretation, repeated-seed statistics, advanced-track analysis, and failure analysis & Claims supported by figures or tables, repeated-seed statistics computed and interpreted correctly, explicit answers to the required conceptual questions, advanced track tied back to the main story, and failure analysis that explains a mechanism rather than merely showing a poor result & 18 \\
+Report clarity, figures, explanation of new AI concepts, and limitations & New AI terms defined clearly, figures readable and discussed, notation used consistently, conclusions linked to evidence, and limitations stated honestly with explicit boundaries on what the study does not show & 10 \\
+Presentation and oral defense & Clear central claim, fair summary of evidence, balanced participation by team members, and precise, honest responses to conceptual, mathematical, and implementation questions during Q\&A & 10 \\
+Repository quality and collaboration hygiene & Meaningful commit history, readable README, exact reproduction instructions, branch-based workflow, and clear evidence that all members contributed through merged work & 8 \\
+\bottomrule
+\end{tabularx}
+
+There is \textbf{no standalone rubric category for raw accuracy}. Strong work is defined by correctness, judgment, explanation, and honest evidence.
+
+\section{Submission Summary}
+
+\capstonebox{
+\textbf{Submit by March 29 at 11:59 PM:}
+\begin{itemize}
+    \item GitHub repository link
+    \item final PDF report
+    \item slide deck
+    \item contribution statement from each team member
+\end{itemize}
+Prepare for a live 10-minute presentation and 5-minute Q\&A with the review committee.
+}
+
+\section*{References}
+\begin{thebibliography}{9}
+
+\bibitem{deisenroth2020}
+Marc Peter Deisenroth, A. Aldo Faisal, and Cheng Soon Ong.
+\newblock \emph{Mathematics for Machine Learning}.
+\newblock Cambridge University Press, 2020.
+
+\bibitem{murphy2022}
+Kevin P. Murphy.
+\newblock \emph{Probabilistic Machine Learning: An Introduction}.
+\newblock MIT Press, 2022.
+
+\bibitem{goodfellow2016}
+Ian Goodfellow, Yoshua Bengio, and Aaron Courville.
+\newblock \emph{Deep Learning}.
+\newblock MIT Press, 2016.
+
+\bibitem{ngdeep}
+Andrew Ng and Kian Katanforoosh.
+\newblock \emph{CS229 Lecture Notes: Deep Learning}.
+\newblock Stanford University, updated notes available at \url{https://cs229.stanford.edu/}.
+
+\bibitem{cs231n_nn}
+Stanford CS231n staff.
+\newblock \emph{Neural Networks Part 1: Setting up the Architecture}.
+\newblock \url{https://cs231n.github.io/neural-networks-1/}
+
+\bibitem{cs231n_backprop}
+Stanford CS231n staff.
+\newblock \emph{Optimization Part 2: Backpropagation, Intuitions}.
+\newblock \url{https://cs231n.github.io/optimization-2/}
+
+\bibitem{ethml2024}
+ETH Zurich Learning and Adaptive Systems Group.
+\newblock \emph{Introduction to Machine Learning Course Notes}.
+\newblock \url{https://las.inf.ethz.ch/teaching/introml-s24}
+
+\bibitem{githubflow}
+GitHub.
+\newblock \emph{GitHub Flow}.
+\newblock \url{https://docs.github.com/en/get-started/using-github/github-flow}
+
+\bibitem{missingsemester}
+MIT CSAIL.
+\newblock \emph{The Missing Semester of Your CS Education: Version Control (Git)}.
+\newblock \url{https://missing.csail.mit.edu/2020/version-control/}
+
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,56 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{tabularx}
+
+\title{Math4AI Capstone Report Title}
+\author{Team Member 1 \and Team Member 2 \and Team Member 3}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+State the central question, the models compared, the main experimental evidence, and the conclusion in 120--180 words.
+\end{abstract}
+
+\section{Introduction}
+Frame the capstone question and explain why comparing a linear model to a one-hidden-layer neural network is scientifically meaningful.
+
+\section{Background and Mathematical Setup}
+Define the AI concepts used in the project and summarize the required mathematical setup. Explain why softmax regression is a probabilistic model, why cross-entropy is negative log-likelihood, and describe the one-hidden-layer model structurally without pre-answering the main interpretive questions.
+
+\section{Methods}
+Describe the datasets, preprocessing, softmax regression, neural network, training protocol, optimizer choices, and evaluation metrics. Make the digits protocol explicit and state exactly how validation and test data were used.
+
+\section{Implementation Sanity Checks}
+Briefly document at least three verification checks, such as a gradient sanity check, probability-sum check, tiny-subset loss decrease, tiny-subset overfitting test, or NaN/Inf check.
+
+\section{Experiments}
+Report the required core comparisons and ablations. Prefer a small number of well-designed figures over many shallow plots. Treat the following as questions your evidence must answer: when is the linear model sufficient, what representational change the hidden layer provides, when extra complexity fails to justify itself, what the failure case teaches, and what repeated-seed statistics add beyond a single run.
+
+\section{Advanced Track}
+Include exactly one of the following:
+\begin{itemize}[leftmargin=1.4em]
+    \item Track A: PCA/SVD and input geometry
+    \item Track B: Prediction confidence and reliability
+\end{itemize}
+
+\section{Discussion}
+Interpret the results. State clearly where linear structure was sufficient, where nonlinearity helped, and why. Distinguish what is supported by evidence from what remains uncertain. Use consistent notation and define symbols before using them.
+
+\section{Limitations}
+Explain what the project does not test and which conclusions should not be overgeneralized.
+
+\section*{References}
+Use a consistent citation style.
+
+\end{document}
