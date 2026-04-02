@@ -54,7 +54,73 @@ def run_sanity_checks():
     print("Delegating to standalone sanity_checks.py...\n")
     run_standalone_sanity_checks()
 
+# ── Experiment 1: Synthetic Tasks ─────────────────────────
 
+def run_synthetic_experiments():
+    """Train both models on linear_gaussian and moons, save figures and a summary text."""
+    print("\n" + "=" * 62)
+    print("EXPERIMENT 1: SYNTHETIC TASKS")
+    print("=" * 62)
+
+    summary_lines = ["Synthetic Task Results", "=" * 50]
+
+    for dataset_name in ['linear_gaussian', 'moons']:
+        print(f"\n{'='*50}\n  Dataset: {dataset_name}")
+        X_train, y_train, X_val, y_val, X_test, y_test = load_synthetic(dataset_name)
+        n_cls    = len(np.unique(y_train))
+        n_feat   = X_train.shape[1]
+        n_train  = len(y_train)
+        X_all    = np.vstack([X_train, X_val, X_test])
+        y_all    = np.concatenate([y_train, y_val, y_test])
+
+        # Softmax Regression — full-batch SGD, lr=0.1
+        print("\n  [Softmax Regression]")
+        sr = SoftmaxRegression(n_feat, n_cls)
+        sr.init_params(seed=42)
+        hist_sr, best_sr, _ = train_model(
+            sr, SGD(lr=0.1), X_train, y_train, X_val, y_val,
+            n_classes=n_cls, n_epochs=300, batch_size=n_train, lam=1e-5, seed=42)
+        sr.set_params(best_sr)
+        acc_sr  = compute_accuracy(sr, X_test, y_test)
+        loss_sr = compute_loss(sr, X_test, y_test, n_cls)
+        print(f"  Test Acc: {acc_sr:.4f}, Test CE: {loss_sr:.4f}")
+
+        # Neural Network — full-batch Adam, h=32
+        print("\n  [Neural Network, h=32, Adam]")
+        nn = NeuralNetwork(n_feat, 32, n_cls)
+        nn.init_params(seed=42)
+        hist_nn, best_nn, _ = train_model(
+            nn, Adam(lr=0.01), X_train, y_train, X_val, y_val,
+            n_classes=n_cls, n_epochs=300, batch_size=n_train, lam=1e-5, seed=42)
+        nn.set_params(best_nn)
+        acc_nn  = compute_accuracy(nn, X_test, y_test)
+        loss_nn = compute_loss(nn, X_test, y_test, n_cls)
+        print(f"  Test Acc: {acc_nn:.4f}, Test CE: {loss_nn:.4f}")
+
+        summary_lines += [
+            f"\nDataset: {dataset_name}",
+            f"  Softmax | Test Acc: {acc_sr:.4f} | Test CE: {loss_sr:.4f}",
+            f"  NN h=32 | Test Acc: {acc_nn:.4f} | Test CE: {loss_nn:.4f}",
+        ]
+
+        tag = dataset_name.replace('_', '')
+        plot_decision_boundary(sr, X_all, y_all,
+            title=f"Softmax Regression - {dataset_name}",
+            filename=f"decision_boundary_{tag}_softmax.png")
+        plot_decision_boundary(nn, X_all, y_all,
+            title=f"Neural Network (h=32) - {dataset_name}",
+            filename=f"decision_boundary_{tag}_nn.png")
+        plot_decision_boundary_comparison(
+            [sr, nn], X_all, y_all,
+            titles=['Softmax Regression (Linear)', 'Neural Network (h=32, tanh)'],
+            filename=f"comparison_{tag}.png")
+        plot_loss_curves([hist_sr, hist_nn], ['Softmax', 'NN (h=32)'],
+            title=f"Training Dynamics - {dataset_name}",
+            filename=f"loss_curves_{tag}.png")
+
+    with open(RESULTS_DIR / "synthetic_results.txt", "w") as f:
+        f.write("\n".join(summary_lines))
+    print("\n  Saved: results/synthetic_results.txt")
 
 
 # ── Entry Point ───────────────────────────────────────────
