@@ -241,6 +241,93 @@ def run_optimizer_study():
 
     return results
 
+# ── Experiment 5: Repeated-Seed Evaluation ────────────────
+
+def run_repeated_seed():
+    """Run both final configs over 5 seeds and report means with 95 % CIs.
+
+    Uses the t-distribution (t_{0.025,4} = 2.776) since n=5 is small.
+    Final configs chosen by lowest val CE in the optimizer study:
+      Softmax → SGD lr=0.05 | NN h=32 → Adam lr=0.001
+    """
+    print("\n" + "=" * 62)
+    print("EXPERIMENT 5: REPEATED-SEED EVALUATION (DIGITS)")
+    print("=" * 62)
+
+    X_train, y_train, X_val, y_val, X_test, y_test = load_digits()
+    n_cls, n_feat = 10, X_train.shape[1]
+    seeds  = [0, 1, 2, 3, 4]
+    t_crit = 2.776   # t_{0.025, 4}
+
+    results = {}
+    for model_name in ['Softmax', 'NN']:
+        accs, ces = [], []
+        for s in seeds:
+            if model_name == 'Softmax':
+                model = SoftmaxRegression(n_feat, n_cls)
+                model.init_params(seed=s)
+                opt = SGD(lr=0.05)
+            else:
+                model = NeuralNetwork(n_feat, 32, n_cls)
+                model.init_params(seed=s)
+                opt = Adam(lr=0.001)
+
+            _, best_p, _ = train_model(
+                model, opt, X_train, y_train, X_val, y_val,
+                n_classes=n_cls, n_epochs=200, batch_size=64, lam=1e-4, seed=s, verbose=False)
+            model.set_params(best_p)
+            acc  = compute_accuracy(model, X_test, y_test)
+            loss = compute_loss(model, X_test, y_test, n_cls)
+            accs.append(acc); ces.append(loss)
+            print(f"  {model_name} seed={s}: Acc={acc:.4f}, CE={loss:.4f}")
+
+        accs, ces  = np.array(accs), np.array(ces)
+        mean_acc   = accs.mean(); ci_acc = t_crit * accs.std(ddof=1) / np.sqrt(5)
+        mean_ce    = ces.mean();  ci_ce  = t_crit * ces.std(ddof=1)  / np.sqrt(5)
+        results[model_name] = dict(mean_acc=mean_acc, ci_acc=ci_acc,
+                                   mean_ce=mean_ce,   ci_ce=ci_ce,
+                                   accs=accs, ces=ces)
+        print(f"\n  {model_name}: Acc {mean_acc:.4f} ± {ci_acc:.4f} | "
+              f"CE {mean_ce:.4f} ± {ci_ce:.4f}")
+
+    with open(RESULTS_DIR / "repeated_seed.txt", "w", encoding='utf-8') as f:
+        f.write("Repeated-Seed Evaluation (5 seeds, Digits)\n")
+        f.write("=" * 60 + "\n95% CI: mean +/- 2.776 * s / sqrt(5)\n\n")
+        for name, r in results.items():
+            f.write(f"{name}:\n"
+                    f"  Test Accuracy: {r['mean_acc']:.4f} ± {r['ci_acc']:.4f}\n"
+                    f"  Test CE Loss:  {r['mean_ce']:.4f} ± {r['ci_ce']:.4f}\n"
+                    f"  Raw accs: {r['accs']}\n  Raw CEs: {r['ces']}\n\n")
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5.5))
+    names = list(results.keys())
+    x = np.arange(len(names))
+
+    for ax, metric, ylabel, title in zip(
+            axes,
+            [('mean_acc', 'ci_acc'), ('mean_ce', 'ci_ce')],
+            ['Test Accuracy', 'Test Cross-Entropy'],
+            ['Test Accuracy (5 seeds, 95% CI)', 'Test CE Loss (5 seeds, 95% CI)']):
+        means = [results[n][metric[0]] for n in names]
+        cis   = [results[n][metric[1]] for n in names]
+        bars  = ax.bar(x, means, yerr=cis, color=['#3498DB', '#E74C3C'],
+                       edgecolor='white', capsize=12, alpha=0.85, width=0.5,
+                       error_kw={'linewidth': 2, 'capthick': 2})
+        for bar, val, ci in zip(bars, means, cis):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + ci + 0.005,
+                    f'{val:.3f}', ha='center', va='bottom', fontweight='bold', fontsize=11)
+        ax.set_xticks(x); ax.set_xticklabels(names, fontsize=12)
+        ax.set_ylabel(ylabel); ax.set_title(title, fontweight='bold')
+
+    fig.suptitle('Repeated-Seed Evaluation — Digits', fontsize=15, fontweight='bold', y=1.02)
+    plt.tight_layout()
+    fig.savefig(get_figures_dir() / "repeated_seed_digits.png",
+                dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    print("  Saved: repeated_seed_digits.png")
+
+    return results
+
 
 # ── Entry Point ───────────────────────────────────────────
 
