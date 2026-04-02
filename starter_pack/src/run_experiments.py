@@ -122,6 +122,38 @@ def run_synthetic_experiments():
         f.write("\n".join(summary_lines))
     print("\n  Saved: results/synthetic_results.txt")
 
+# ── Experiment 3: Capacity Ablation (Moons) ───────────────
+
+def run_capacity_ablation():
+    """Train NNs with h = 2, 8, 32 on moons; compare boundaries and curves."""
+    print("\n" + "=" * 62)
+    print("EXPERIMENT 3: CAPACITY ABLATION (MOONS)")
+    print("=" * 62)
+
+    X_train, y_train, X_val, y_val, X_test, y_test = load_synthetic('moons')
+    n_cls, n_feat, n_train = 2, 2, len(y_train)
+    X_all = np.vstack([X_train, X_val, X_test])
+    y_all = np.concatenate([y_train, y_val, y_test])
+
+    histories, trained_models = {}, {}
+    for h in [2, 8, 32]:
+        print(f"\n  [NN, h={h}, Adam lr=0.01]")
+        nn = NeuralNetwork(n_feat, h, n_cls)
+        nn.init_params(seed=42)
+        hist, best_p, best_ep = train_model(
+            nn, Adam(lr=0.01), X_train, y_train, X_val, y_val,
+            n_classes=n_cls, n_epochs=500, batch_size=n_train, lam=1e-5, seed=42)
+        nn.set_params(best_p)
+        print(f"  Test Acc: {compute_accuracy(nn, X_test, y_test):.4f}, Best Epoch: {best_ep}")
+        histories[str(h)]  = hist
+        trained_models[h]  = nn
+        plot_decision_boundary(nn, X_all, y_all,
+            title=f"NN (h={h}) - Moons",
+            filename=f"decision_boundary_moons_h{h}.png")
+
+    plot_capacity_ablation_boundaries(trained_models, X_all, y_all,
+        filename="capacity_ablation_boundaries.png")
+    plot_capacity_ablation(histories, filename="capacity_ablation_curves.png")
 
 # ── Entry Point ───────────────────────────────────────────
 
