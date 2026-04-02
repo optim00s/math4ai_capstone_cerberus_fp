@@ -1,39 +1,28 @@
 """
-Optimizers for Math4AI Capstone
-SGD, Momentum, and Adam
+Optimizers: SGD, Momentum, Adam — implemented from scratch with NumPy.
 """
 
 import numpy as np
 
 
 class SGD:
-    """Vanilla mini-batch Stochastic Gradient Descent."""
+    """Vanilla SGD: θ ← θ - lr * g"""
 
     def __init__(self, lr=0.05):
         self.lr = lr
 
     def init_state(self, params):
-        """No extra state needed for vanilla SGD."""
-        pass
+        pass  # no state needed
 
     def step(self, params, grads):
-        """Update parameters in-place.
-
-        Parameters
-        ----------
-        params : dict
-            Model parameters (modified in-place).
-        grads : dict
-            Gradients with matching keys.
-        """
         for key in params:
             params[key] -= self.lr * grads[key]
 
 
 class Momentum:
-    """SGD with momentum.
+    """SGD with momentum — accumulates velocity to smooth updates.
 
-    v_t = μ * v_{t-1} + grad
+    v_t = μ * v_{t-1} + g_t
     θ_t = θ_{t-1} - lr * v_t
     """
 
@@ -43,7 +32,6 @@ class Momentum:
         self.v = {}
 
     def init_state(self, params):
-        """Initialize velocity buffers to zeros."""
         self.v = {key: np.zeros_like(val) for key, val in params.items()}
 
     def step(self, params, grads):
@@ -53,13 +41,14 @@ class Momentum:
 
 
 class Adam:
-    """Adam optimizer.
+    """Adam optimizer — adaptive per-parameter learning rates.
+
+    Maintains exponential moving averages of gradient (m) and squared
+    gradient (v), with bias correction for the cold start at t=0.
 
     m_t = β1 * m_{t-1} + (1-β1) * g_t
-    v_t = β2 * v_{t-1} + (1-β2) * g_t^2
-    m_hat = m_t / (1 - β1^t)
-    v_hat = v_t / (1 - β2^t)
-    θ_t = θ_{t-1} - lr * m_hat / (sqrt(v_hat) + ε)
+    v_t = β2 * v_{t-1} + (1-β2) * g_t²
+    θ_t = θ_{t-1} - lr * (m_t / (1-β1^t)) / (√(v_t / (1-β2^t)) + ε)
     """
 
     def __init__(self, lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8):
@@ -72,7 +61,6 @@ class Adam:
         self.t = 0
 
     def init_state(self, params):
-        """Initialize first and second moment estimates."""
         self.m = {key: np.zeros_like(val) for key, val in params.items()}
         self.v = {key: np.zeros_like(val) for key, val in params.items()}
         self.t = 0
@@ -83,6 +71,7 @@ class Adam:
             self.m[key] = self.beta1 * self.m[key] + (1 - self.beta1) * grads[key]
             self.v[key] = self.beta2 * self.v[key] + (1 - self.beta2) * (grads[key] ** 2)
 
+            # bias correction
             m_hat = self.m[key] / (1 - self.beta1 ** self.t)
             v_hat = self.v[key] / (1 - self.beta2 ** self.t)
 

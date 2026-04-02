@@ -54,6 +54,7 @@ def run_sanity_checks():
     print("Delegating to standalone sanity_checks.py...\n")
     run_standalone_sanity_checks()
 
+
 # ── Experiment 1: Synthetic Tasks ─────────────────────────
 
 def run_synthetic_experiments():
@@ -122,6 +123,7 @@ def run_synthetic_experiments():
         f.write("\n".join(summary_lines))
     print("\n  Saved: results/synthetic_results.txt")
 
+
 # ── Experiment 2: Digits Benchmark ────────────────────────
 
 def run_digits_experiment():
@@ -165,6 +167,7 @@ def run_digits_experiment():
         filename="loss_curves_digits.png")
 
     return hist_sr, hist_nn
+
 
 # ── Experiment 3: Capacity Ablation (Moons) ───────────────
 
@@ -240,6 +243,7 @@ def run_optimizer_study():
             f.write(f"{name:10s} | Acc: {r['acc']:.4f} | Loss: {r['loss']:.4f} | Best Epoch: {r['best_epoch']}\n")
 
     return results
+
 
 # ── Experiment 5: Repeated-Seed Evaluation ────────────────
 
@@ -328,6 +332,7 @@ def run_repeated_seed():
 
     return results
 
+
 # ── Experiment 6: Track A — PCA / SVD Analysis ────────────
 
 def run_track_a_pca():
@@ -392,6 +397,7 @@ def run_track_a_pca():
         f.write("\nSoftmax at PCA dimensions:\n")
         for m, va, vl in zip(pca_dims, val_accs, val_losses):
             f.write(f"  m={m:3d}: Val Acc={va:.4f}, Val CE={vl:.4f}\n")
+
 
 # ── Experiment 7: Failure-Case Analysis ───────────────────
 
@@ -458,6 +464,7 @@ def run_failure_analysis():
                 "h = tanh(W1 x + b1) maps 64-D input to 2 dimensions, which is\n"
                 "insufficient to separate 10 classes.  Both train and val loss\n"
                 "remain high and accuracy plateaus far below what h=32 achieves.\n")
+
 
 # ── Entry Point ───────────────────────────────────────────
 
