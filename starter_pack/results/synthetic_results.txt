@@ -1,0 +1,10 @@
+Synthetic Task Results
+==================================================
+
+Dataset: linear_gaussian
+  Softmax | Test Acc: 0.9500 | Test CE: 0.1518
+  NN h=32 | Test Acc: 0.9500 | Test CE: 0.1551
+
+Dataset: moons
+  Softmax | Test Acc: 0.8375 | Test CE: 0.3025
+  NN h=32 | Test Acc: 0.9750 | Test CE: 0.0928

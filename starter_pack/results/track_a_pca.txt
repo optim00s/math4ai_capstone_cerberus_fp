@@ -1,0 +1,15 @@
+Track A: PCA/SVD Analysis Results
+==================================================
+
+Cumulative Explained Variance:
+  Top  5 PCs: 54.7%
+  Top 10 PCs: 74.1%
+  Top 20 PCs: 89.6%
+  Top 40 PCs: 98.9%
+  Top 64 PCs: 100.0%
+
+Softmax at PCA dimensions:
+  m= 10: Val Acc=0.9268, Val CE=0.2874
+  m= 20: Val Acc=0.9408, Val CE=0.2292
+  m= 40: Val Acc=0.9493, Val CE=0.2133
+  m= 64: Val Acc=0.9549, Val CE=0.2109
