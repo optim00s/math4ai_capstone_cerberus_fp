@@ -337,3 +337,78 @@ def plot_optimizer_comparison(histories_dict, title="Optimizer Study (Digits)", 
     fig.suptitle(title, fontsize=15, fontweight='bold', y=1.02)
     plt.tight_layout()
     _save(fig, filename)
+    
+# ── Track A: PCA / SVD figures ────────────────────────────
+
+def plot_pca_scree(explained_variance_ratio, filename=None):
+    """Scree plot — individual EVR bars with cumulative % line.
+    Dashed reference at 90% cumulative variance.
+    """
+    fig, ax = plt.subplots(1, 1, figsize=(9, 5.5))
+    n = min(len(explained_variance_ratio), 40)
+    cumulative = np.cumsum(explained_variance_ratio[:n])
+
+    ax.bar(range(1, n + 1), explained_variance_ratio[:n], alpha=0.65,
+           color='#3498DB', edgecolor='#2980B9', linewidth=0.5, label='Individual')
+    ax2 = ax.twinx()
+    ax2.plot(range(1, n + 1), cumulative * 100, 'o-', color='#E74C3C',
+             linewidth=2.5, markersize=4, label='Cumulative %')
+    ax2.axhline(y=90, color='#95A5A6', linestyle='--', linewidth=1, alpha=0.7)
+    ax2.set_ylabel('Cumulative Explained Variance (%)', color='#E74C3C')
+    ax2.set_ylim(0, 105)
+
+    ax.set_xlabel('Principal Component')
+    ax.set_ylabel('Explained Variance Ratio', color='#3498DB')
+    ax.set_title('Scree Plot - Digits Data', fontsize=14, fontweight='bold', pad=12)
+
+    l1, lab1 = ax.get_legend_handles_labels()
+    l2, lab2 = ax2.get_legend_handles_labels()
+    ax.legend(l1 + l2, lab1 + lab2, loc='center right', framealpha=0.9)
+
+    plt.tight_layout()
+    _save(fig, filename)
+
+
+def plot_pca_2d(X_2d, y, filename=None):
+    """Scatter of all digits projected onto the first 2 principal components."""
+    fig, ax = plt.subplots(1, 1, figsize=(9, 7))
+    for cls in np.unique(y):
+        mask = y == cls
+        ax.scatter(X_2d[mask, 0], X_2d[mask, 1],
+                   c=MULTI_COLORS[int(cls) % len(MULTI_COLORS)],
+                   s=12, alpha=0.65, label=str(int(cls)),
+                   edgecolors='white', linewidths=0.2)
+
+    ax.set_xlabel('PC 1', fontsize=12); ax.set_ylabel('PC 2', fontsize=12)
+    ax.set_title('2D PCA Projection of Digits Data', fontsize=14, fontweight='bold', pad=12)
+    ax.legend(title='Digit', loc='best', ncol=2, fontsize=8,
+              title_fontsize=10, framealpha=0.9, edgecolor='#BDC3C7')
+    plt.tight_layout()
+    _save(fig, filename)
+
+
+def plot_pca_softmax_comparison(dims, val_accs, val_losses, filename=None):
+    """Bar chart: softmax accuracy and CE at different PCA dimensions (m = 10, 20, 40, 64)."""
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5.5))
+    x = np.arange(len(dims))
+    labels = [str(d) for d in dims]
+
+    for ax, vals, ylabel, title, offset in zip(
+            axes,
+            [val_accs, val_losses],
+            ['Validation Accuracy', 'Validation Cross-Entropy'],
+            ['Accuracy vs PCA Dimensions', 'Loss vs PCA Dimensions'],
+            [0.003, 0.005]):
+        bars = ax.bar(x, vals, color='#3498DB', alpha=0.85,
+                      edgecolor='white', linewidth=1.5, width=0.6)
+        for bar, val in zip(bars, vals):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + offset,
+                    f'{val:.3f}', ha='center', va='bottom', fontweight='bold', fontsize=10)
+        ax.set_xticks(x); ax.set_xticklabels(labels)
+        ax.set_xlabel('PCA Dimensions'); ax.set_ylabel(ylabel)
+        ax.set_title(title, fontweight='bold')
+
+    fig.suptitle('Track A: Softmax Regression with PCA Compression',
+                 fontsize=15, fontweight='bold', y=1.02)
+    plt.tight_layout()
+    _save(fig, filename)
