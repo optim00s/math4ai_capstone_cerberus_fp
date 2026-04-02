@@ -314,3 +314,26 @@ def plot_capacity_ablation(histories_dict, title="Capacity Ablation (Moons)",
     plt.close(fig)
 
 
+def plot_optimizer_comparison(histories_dict, title="Optimizer Study (Digits)", filename=None):
+    """Validation loss and accuracy for SGD, Momentum, and Adam."""
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
+    colors = {'SGD': '#E74C3C', 'Momentum': '#3498DB', 'Adam': '#27AE60'}
+
+    for name, hist in histories_dict.items():
+        c = colors.get(name, '#000000')
+        ep = range(1, len(hist['train_loss']) + 1)
+        axes[0].plot(ep, hist['train_loss'], '-', color=c, alpha=0.35, linewidth=1)
+        axes[0].plot(ep, hist['val_loss'],   '-', color=c, linewidth=2.5, label=f'{name} val')
+        axes[1].plot(ep, hist['train_acc'],  '-', color=c, alpha=0.35, linewidth=1)
+        axes[1].plot(ep, hist['val_acc'],    '-', color=c, linewidth=2.5, label=f'{name} val')
+
+    axes[0].set_xlabel('Epoch'); axes[0].set_ylabel('Cross-Entropy Loss')
+    axes[0].set_title('Loss: Optimizer Comparison', fontweight='bold')
+    axes[0].legend(fontsize=10, framealpha=0.9)
+    axes[1].set_xlabel('Epoch'); axes[1].set_ylabel('Accuracy')
+    axes[1].set_title('Accuracy: Optimizer Comparison', fontweight='bold')
+    axes[1].legend(fontsize=10, framealpha=0.9)
+
+    fig.suptitle(title, fontsize=15, fontweight='bold', y=1.02)
+    plt.tight_layout()
+    _save(fig, filename)
