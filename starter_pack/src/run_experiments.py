@@ -393,6 +393,72 @@ def run_track_a_pca():
         for m, va, vl in zip(pca_dims, val_accs, val_losses):
             f.write(f"  m={m:3d}: Val Acc={va:.4f}, Val CE={vl:.4f}\n")
 
+# ── Experiment 7: Failure-Case Analysis ───────────────────
+
+def run_failure_analysis():
+    """Show that NN h=2 fails on 10-class digits due to a 2-D bottleneck.
+
+    h = tanh(W1 x + b1) collapses 64-D input to 2 dimensions — not enough
+    to separate 10 classes.  Compared against the adequate h=32 model.
+    """
+    print("\n" + "=" * 62)
+    print("EXPERIMENT 7: FAILURE-CASE ANALYSIS")
+    print("=" * 62)
+
+    X_train, y_train, X_val, y_val, X_test, y_test = load_digits()
+    n_cls, n_feat = 10, X_train.shape[1]
+
+    print("\n  [NN h=2 — under-capacity]")
+    nn_fail = NeuralNetwork(n_feat, 2, n_cls)
+    nn_fail.init_params(seed=42)
+    hist_fail, best_fail, _ = train_model(
+        nn_fail, SGD(lr=0.05), X_train, y_train, X_val, y_val,
+        n_classes=n_cls, n_epochs=200, batch_size=64, lam=1e-4, seed=42)
+    nn_fail.set_params(best_fail)
+    print(f"  Test Acc: {compute_accuracy(nn_fail, X_test, y_test):.4f}, "
+          f"Test CE: {compute_loss(nn_fail, X_test, y_test, n_cls):.4f}")
+
+    nn_good = NeuralNetwork(n_feat, 32, n_cls)
+    nn_good.init_params(seed=42)
+    hist_good, _, _ = train_model(
+        nn_good, Adam(lr=0.001), X_train, y_train, X_val, y_val,
+        n_classes=n_cls, n_epochs=200, batch_size=64, lam=1e-4, seed=42, verbose=False)
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
+    epochs = range(1, len(hist_fail['train_loss']) + 1)
+
+    for hist, color, tag in [(hist_fail, '#E74C3C', 'h=2 SGD'),
+                              (hist_good, '#27AE60', 'h=32 Adam')]:
+        axes[0].plot(epochs, hist['train_loss'], '-', color=color, alpha=0.5, linewidth=1, label=f'{tag} (train)')
+        axes[0].plot(epochs, hist['val_loss'],   '-', color=color, linewidth=2.5,           label=f'{tag} (val)')
+        axes[1].plot(epochs, hist['val_acc'],    '-', color=color, linewidth=2.5,           label=tag)
+
+    axes[0].set_xlabel('Epoch'); axes[0].set_ylabel('Cross-Entropy Loss')
+    axes[0].set_title('Loss: Under-capacity (h=2) vs Adequate (h=32)', fontweight='bold')
+    axes[0].legend(fontsize=9, framealpha=0.9)
+    axes[1].set_xlabel('Epoch'); axes[1].set_ylabel('Validation Accuracy')
+    axes[1].set_title('Accuracy: Under-capacity vs Adequate', fontweight='bold')
+    axes[1].legend(fontsize=10, framealpha=0.9)
+
+    fig.suptitle('Failure Case: Under-Capacity NN (h=2) on 10-Class Digits',
+                 fontsize=15, fontweight='bold', y=1.02)
+    plt.tight_layout()
+    fig.savefig(get_figures_dir() / "failure_analysis.png",
+                dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    print("  Saved: failure_analysis.png")
+
+    acc_fail  = compute_accuracy(nn_fail, X_test, y_test)
+    loss_fail = compute_loss(nn_fail, X_test, y_test, n_cls)
+    with open(RESULTS_DIR / "failure_analysis.txt", "w") as f:
+        f.write("Failure-Case Analysis: Under-Capacity NN (h=2) on 10-Class Digits\n")
+        f.write("=" * 60 + "\n\n")
+        f.write(f"NN h=2  | Test Acc: {acc_fail:.4f} | Test CE: {loss_fail:.4f}\n\n")
+        f.write("With only 2 hidden units the network creates a 2-D bottleneck:\n"
+                "h = tanh(W1 x + b1) maps 64-D input to 2 dimensions, which is\n"
+                "insufficient to separate 10 classes.  Both train and val loss\n"
+                "remain high and accuracy plateaus far below what h=32 achieves.\n")
+
 # ── Entry Point ───────────────────────────────────────────
 
 def main():
