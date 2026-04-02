@@ -1,0 +1,9 @@
+Failure-Case Analysis: Under-Capacity NN (h=2) on 10-Class Digits
+============================================================
+
+NN h=2  | Test Acc: 0.5897 | Test CE: 1.1133
+
+With only 2 hidden units the network creates a 2-D bottleneck:
+h = tanh(W1 x + b1) maps 64-D input to 2 dimensions, which is
+insufficient to separate 10 classes.  Both train and val loss
+remain high and accuracy plateaus far below what h=32 achieves.

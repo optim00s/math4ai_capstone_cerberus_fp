@@ -1,0 +1,5 @@
+Optimizer Study Results (NN h=32, Digits)
+==================================================
+SGD        | Acc: 0.9484 | Loss: 0.1700 | Best Epoch: 197
+Momentum   | Acc: 0.9538 | Loss: 0.1653 | Best Epoch: 197
+Adam       | Acc: 0.9511 | Loss: 0.1507 | Best Epoch: 197

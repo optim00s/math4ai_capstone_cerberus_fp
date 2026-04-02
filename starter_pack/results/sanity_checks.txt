@@ -1,0 +1,51 @@
+==============================================================
+  MATH4AI CAPSTONE: IMPLEMENTATION SANITY CHECKS
+==============================================================
+
+[Check 1] Softmax probabilities sum exactly to 1
+  Input logits Z:
+[[   1.    2.    3.]
+ [   0.    0.    0.]
+ [-100.    0.  100.]]
+  Softmax(Z):
+[[0.090031 0.244728 0.665241]
+ [0.333333 0.333333 0.333333]
+ [0.       0.       1.      ]]
+  Row sums: [1. 1. 1.]
+  CHECK 1 PASS: all rows sum to 1 within machine precision
+
+[Check 2] Loss decreases monotonically after the first few SGD steps
+  Tracking loss for first 10 SGD steps (50 samples, 4 features, 3 classes):
+    step  0 | loss = 1.6202
+    step  1 | loss = 1.5841
+    step  2 | loss = 1.5495
+    step  3 | loss = 1.5162
+    step  4 | loss = 1.4843
+    step  5 | loss = 1.4539
+    step  6 | loss = 1.4248
+    step  7 | loss = 1.3970
+    step  8 | loss = 1.3707
+    step  9 | loss = 1.3457
+  CHECK 2 PASS: loss decreased monotonically from 1.6202 → 1.3457
+
+[Check 3] Numerical gradient check (analytical vs finite-difference)
+  W1  : max |analytical − numerical| = 1.47e-11
+  b1  : max |analytical − numerical| = 9.65e-12
+  W2  : max |analytical − numerical| = 1.07e-11
+  b2  : max |analytical − numerical| = 1.37e-11
+  CHECK 3 PASS: all gradient discrepancies < 1e-4
+
+[Check 4] No NaN or Inf values produced during training
+  NaN/Inf detected in parameters after 30 epochs: False
+  CHECK 4 PASS: parameters are all finite
+
+[Check 5] Neural network can overfit a tiny dataset (10 samples) to 100% accuracy
+  Final training loss : 0.000080
+  Final training accuracy: 100.0%  (expected 100%)
+  CHECK 5 PASS: perfect overfit achieved — forward/backward passes are consistent
+
+==============================================================
+  STATUS: ALL 5 SANITY CHECKS PASSED  [OK]
+==============================================================
+
+Results written to: /Users/student/Desktop/math4ai_capstone_cerberus_fp/starter_pack/results/sanity_checks.txt
