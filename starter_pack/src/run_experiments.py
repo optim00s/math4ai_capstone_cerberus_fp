@@ -328,6 +328,70 @@ def run_repeated_seed():
 
     return results
 
+# ── Experiment 6: Track A — PCA / SVD Analysis ────────────
+
+def run_track_a_pca():
+    """PCA / SVD on digits: scree plot, 2D projection, softmax at reduced dims.
+
+    Centering uses only training-set mean to avoid leakage.
+    Softmax is tested at m ∈ {10, 20, 40, 64} principal components.
+    """
+    print("\n" + "=" * 62)
+    print("EXPERIMENT 6: TRACK A — PCA/SVD ANALYSIS")
+    print("=" * 62)
+
+    X_train, y_train, X_val, y_val, X_test, y_test = load_digits()
+    n_cls   = 10
+    X_full  = np.vstack([X_train, X_val, X_test])
+    y_full  = np.concatenate([y_train, y_val, y_test])
+
+    mean      = X_train.mean(axis=0)
+    X_train_c = X_train - mean
+    X_val_c   = X_val   - mean
+    X_full_c  = X_full  - mean
+
+    U, S, Vt = np.linalg.svd(X_train_c, full_matrices=False)
+    evr       = (S ** 2) / np.sum(S ** 2)  # explained variance ratio per component
+    cumvar    = np.cumsum(evr)
+
+    print("\n  [Scree Plot]")
+    plot_pca_scree(evr, filename="pca_scree_digits.png")
+    for k in [5, 10, 20, 40]:
+        print(f"    Top {k:2d} PCs: {cumvar[k-1]*100:.1f}%")
+
+    print("\n  [2D PCA Visualization]")
+    plot_pca_2d(X_full_c @ Vt[:2].T, y_full, filename="pca_2d_digits.png")
+
+    print("\n  [Softmax at reduced PCA dimensions]")
+    pca_dims = [10, 20, 40, 64]
+    val_accs, val_losses = [], []
+    for m in pca_dims:
+        Vm       = Vt[:m] if m < X_train_c.shape[1] else None
+        X_tr_pca = X_train_c @ Vm.T if Vm is not None else X_train_c
+        X_va_pca = X_val_c   @ Vm.T if Vm is not None else X_val_c
+
+        sr_pca = SoftmaxRegression(X_tr_pca.shape[1], n_cls)
+        sr_pca.init_params(seed=42)
+        _, best_p, _ = train_model(
+            sr_pca, SGD(lr=0.05), X_tr_pca, y_train, X_va_pca, y_val,
+            n_classes=n_cls, n_epochs=200, batch_size=64, lam=1e-4, seed=42, verbose=False)
+        sr_pca.set_params(best_p)
+        v_acc  = compute_accuracy(sr_pca, X_va_pca, y_val)
+        v_loss = compute_loss(sr_pca, X_va_pca, y_val, n_cls)
+        val_accs.append(v_acc); val_losses.append(v_loss)
+        print(f"    m={m:3d} | Val Acc: {v_acc:.4f} | Val CE: {v_loss:.4f}")
+
+    plot_pca_softmax_comparison(pca_dims, val_accs, val_losses,
+                                filename="pca_softmax_comparison.png")
+
+    with open(RESULTS_DIR / "track_a_pca.txt", "w") as f:
+        f.write("Track A: PCA/SVD Analysis Results\n" + "=" * 50 + "\n")
+        f.write("\nCumulative Explained Variance:\n")
+        for k in [5, 10, 20, 40, 64]:
+            f.write(f"  Top {k:2d} PCs: {cumvar[min(k, len(cumvar))-1]*100:.1f}%\n")
+        f.write("\nSoftmax at PCA dimensions:\n")
+        for m, va, vl in zip(pca_dims, val_accs, val_losses):
+            f.write(f"  m={m:3d}: Val Acc={va:.4f}, Val CE={vl:.4f}\n")
 
 # ── Entry Point ───────────────────────────────────────────
 
