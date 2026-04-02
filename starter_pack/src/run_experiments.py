@@ -122,6 +122,50 @@ def run_synthetic_experiments():
         f.write("\n".join(summary_lines))
     print("\n  Saved: results/synthetic_results.txt")
 
+# ── Experiment 2: Digits Benchmark ────────────────────────
+
+def run_digits_experiment():
+    """Compare both models on the fixed digits split.
+
+    NN uses Adam (lr=0.001) — the best optimizer from Experiment 4 —
+    so the loss curve here is consistent with the five-seed summary table.
+    """
+    print("\n" + "=" * 62)
+    print("EXPERIMENT 2: DIGITS BENCHMARK")
+    print("=" * 62)
+
+    X_train, y_train, X_val, y_val, X_test, y_test = load_digits()
+    n_cls  = 10
+    n_feat = X_train.shape[1]
+    print(f"  Train: {X_train.shape}, Val: {X_val.shape}, Test: {X_test.shape}")
+
+    print("\n  [Softmax Regression — SGD lr=0.05]")
+    sr = SoftmaxRegression(n_feat, n_cls)
+    sr.init_params(seed=42)
+    hist_sr, best_sr, ep_sr = train_model(
+        sr, SGD(lr=0.05), X_train, y_train, X_val, y_val,
+        n_classes=n_cls, n_epochs=200, batch_size=64, lam=1e-4, seed=42)
+    sr.set_params(best_sr)
+    print(f"  Test Acc: {compute_accuracy(sr, X_test, y_test):.4f}, "
+          f"Test CE: {compute_loss(sr, X_test, y_test, n_cls):.4f}, Best Epoch: {ep_sr}")
+
+    # Adam selected as final config — achieved lowest val CE in optimizer study
+    print("\n  [Neural Network h=32 — Adam lr=0.001]")
+    nn = NeuralNetwork(n_feat, 32, n_cls)
+    nn.init_params(seed=42)
+    hist_nn, best_nn, ep_nn = train_model(
+        nn, Adam(lr=0.001), X_train, y_train, X_val, y_val,
+        n_classes=n_cls, n_epochs=200, batch_size=64, lam=1e-4, seed=42)
+    nn.set_params(best_nn)
+    print(f"  Test Acc: {compute_accuracy(nn, X_test, y_test):.4f}, "
+          f"Test CE: {compute_loss(nn, X_test, y_test, n_cls):.4f}, Best Epoch: {ep_nn}")
+
+    plot_loss_curves([hist_sr, hist_nn], ['Softmax (SGD)', 'NN h=32 (Adam)'],
+        title="Training Dynamics — Digits Benchmark (final configs, seed=42)",
+        filename="loss_curves_digits.png")
+
+    return hist_sr, hist_nn
+
 # ── Experiment 3: Capacity Ablation (Moons) ───────────────
 
 def run_capacity_ablation():
